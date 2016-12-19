@@ -13,12 +13,13 @@ main(int argc, char *argv[])
 {
         const char *dictfilename;
         FILE *dictfile;
-        char word[128];
         int **wordmaps;
         int charmap[26];
         int i;
         char *cp;
         int match;
+        char *word;
+        size_t size;
 
         dictfilename = argv[1];
         argv += 2;
@@ -38,7 +39,7 @@ main(int argc, char *argv[])
         }
 
         dictfile = fopen(dictfilename, "r");
-        while (fgets(word, 128, dictfile) != NULL) {
+        while (getline(&word, &size, dictfile) != -1) {
                 for (i = 0; i < argc; i++) {
                         memcpy(charmap, wordmaps[i], sizeof (charmap));
                         for (i = 0; word[i] != '\0'; i++)
@@ -54,4 +55,5 @@ main(int argc, char *argv[])
                         }
                 }
         }
+        free(word);
 }
