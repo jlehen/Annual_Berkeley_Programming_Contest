@@ -10,28 +10,30 @@
 #include <string.h>
 #include <unistd.h>
 
-// TODO: Figure out why the mmap(2) version fails with EINVAL.
-
 #define MAX_PRIMES  250000
 #define NPAGES      50
 #define SLABSIZE    (PAGE_SIZE * NPAGES)      // 200 kB
 #define PRIMES_PER_SLAB   (SLABSIZE / sizeof (unsigned))
 
-static unsigned slab[PRIMES_PER_SLAB];
+static unsigned *slab;          // allocated with mmap(2)
 static unsigned upperbound;     // current slab upper index
-static unsigned idx;            // o <= idx < primecount
+static unsigned idx = 0;        // 0 <= idx < primecount
 unsigned primecount;            // total number of primes
 int fd;
 
 // In 1991, I'm not sure err(3) did exist.
 void
-checkerr(const char *fname, int ret)
+showerr(const char *fname, int line)
 {
-        if (ret == -1) {
-                fprintf(stderr, "%s: %s\n", fname, strerror(errno));
-                exit(1);
-        }
+        fprintf(stderr, "%s@%d: %s\n", fname, line, strerror(errno));
+        exit(1);
 }
+
+#define CHECKERR(fname, errval, val) \
+    do { \
+            if (val == errval) \
+                    showerr(fname, __LINE__); \
+    } while (0)
 
 // This is a poor man's version of Newton's method to compute a square root,
 // using integer division, which can result in a period-two cycle sequence in
@@ -51,22 +53,22 @@ intsqrt(unsigned n, unsigned xk)
 void
 slabremap(off_t offset)
 {
-        static off_t current;
+        static off_t previous_offset = -1;
         int flags = MAP_SHARED;
 
-        if (slab != NULL && offset == current)
+        if (slab != NULL && offset == previous_offset)
                 return;
         //printf("DEBUG: remap slab to offset %u\n", offset);
         if (slab != NULL) {
-                checkerr("lseek", lseek(fd, current, SEEK_SET));
-                checkerr("write", write(fd, slab, SLABSIZE));
-                //flags |= MAP_FIXED;
+                //CHECKERR("lseek", -1, lseek(fd, previous_offset, SEEK_SET));
+                //CHECKERR("write", -1, write(fd, slab, SLABSIZE));
+                flags |= MAP_FIXED;
         }
-        current = offset;
-        checkerr("lseek", lseek(fd, offset, SEEK_SET));
-        checkerr("read", read(fd, slab, SLABSIZE));
-        //checkerr("mmap", (int)mmap(slab, SLABSIZE, PROT_READ | PROT_WRITE,
-        //    flags, fd, offset));
+        previous_offset = offset;
+        //CHECKERR("lseek", -1, lseek(fd, offset, SEEK_SET));
+        //CHECKERR("read", -1, read(fd, slab, SLABSIZE));
+        CHECKERR("mmap", MAP_FAILED, mmap(slab, SLABSIZE,
+            PROT_READ | PROT_WRITE, flags, fd, offset));
 }
 
 unsigned
@@ -121,13 +123,15 @@ main(int argc, char *argv[])
         unsigned K, current, lastprime;
 
         fd = mkstemp(filename);
-        if (fd == -1)
-                checkerr("mkstemp", fd);
+        CHECKERR("mkstemp", -1, fd);
         // Ensure the file is big enough to be mapped.
-        checkerr("lseek", lseek(fd, MAX_PRIMES * sizeof (unsigned) - 1,
+        CHECKERR("lseek", -1, lseek(fd, MAX_PRIMES * sizeof (unsigned) - 1,
             SEEK_SET));
-        checkerr("write", write(fd, "\0", 1));
-        checkerr("lseek", lseek(fd, 0, SEEK_SET));
+        CHECKERR("write", -1, write(fd, "\0", 1));
+        CHECKERR("lseek", -1, lseek(fd, 0, SEEK_SET));
+        // Ensure slab has a valid address.
+        slab = mmap(NULL, SLABSIZE, PROT_READ | PROT_WRITE,
+            MAP_SHARED | MAP_ANON, -1, 0);
 
         K = strtoul(argv[1], NULL, 10);
         // Optimization to run only on odd numbers.
