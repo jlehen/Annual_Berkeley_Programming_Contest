@@ -1,16 +1,18 @@
 #!/bin/sh
 
+E=4
+
 set -e
 
-make 4
+make $E
 echo
 
-ulimit -d $((275 * 1024))
+ulimit -d 275
 set -x
-time ./4 1
-time ./4 10
-time ./4 100
-time ./4 1000
-time ./4 10000
-time ./4 100000
-time ./4 250000
+time ./$E 1
+time ./$E 10
+time ./$E 100
+time ./$E 1000
+time ./$E 10000
+time ./$E 100000
+time ./$E 250000
