@@ -1,3 +1,5 @@
+// This is a naive implementation using pagination.  But it is extremely slow.
+
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/user.h>

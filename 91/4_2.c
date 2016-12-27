@@ -1,3 +1,6 @@
+// This implementation uses the sieve of Eratosthenes with pagination.
+// It is very fast.
+
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/stat.h>
