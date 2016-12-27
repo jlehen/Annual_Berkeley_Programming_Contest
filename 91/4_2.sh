@@ -7,7 +7,7 @@ set -e
 make $E
 echo
 
-ulimit -d $((275 * 1024))
+ulimit -d 275
 set -x
 time ./$E 1
 time ./$E 10
